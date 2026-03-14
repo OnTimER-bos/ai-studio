@@ -1,345 +1,311 @@
-                <!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>V-STUDIO PRO | AI Orchestrator</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+import React, { useState, useEffect } from 'react';
+import { 
+  LayoutGrid, 
+  Type, 
+  Image as ImageIcon, 
+  Video, 
+  Settings, 
+  Sparkles, 
+  Zap, 
+  Clock, 
+  ArrowRight,
+  MonitorPlay,
+  UserCircle2,
+  Layers,
+  Search,
+  CheckCircle2,
+  AlertCircle,
+  Loader2
+} from 'lucide-react';
+
+const App = () => {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [loading, setLoading] = useState(false);
+  const [prompt, setPrompt] = useState('');
+  const [result, setResult] = useState(null);
+  const [history, setHistory] = useState([]);
+
+  // Mock API Key & Database logic simulation
+  const apiKey = ""; // Diset otomatis oleh environment
+
+  const models = {
+    video: [
+      { id: 'sora-2', name: 'Sora 2', provider: 'OpenAI', desc: 'Realistis & Sinematik' },
+      { id: 'veo-3', name: 'Veo 3', provider: 'Google', desc: 'Presisi Tinggi & Detail' },
+      { id: 'kling', name: 'Kling', provider: 'Kwai', desc: 'Gerakan Alami' }
+    ],
+    image: [
+      { id: 'flux-2', name: 'Flux.2', provider: 'Black Forest', desc: 'Fotorealistik' },
+      { id: 'dalle-3', name: 'DALL-E 3', provider: 'OpenAI', desc: 'Pemahaman Prompt Tajam' },
+      { id: 'stable-ultra', name: 'SD Ultra', provider: 'Stability', desc: 'Artistik & Cepat' }
+    ],
+    text: [
+      { id: 'gemini-2-5', name: 'Gemini 2.5 Flash', provider: 'Google', desc: 'Multimodal Speed' },
+      { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI', desc: 'Logika & Penulisan' }
+    ]
+  };
+
+  const handleGenerate = async (type) => {
+    if (!prompt) return;
+    setLoading(true);
     
-    <style>
-        * { font-family: 'Plus Jakarta Sans', sans-serif; transition: all 0.2s ease-in-out; }
-        body { background: #050507; color: #ffffff; overflow: hidden; }
-        
-        /* Glassmorphism Ultra */
-        .glass-card { 
-            background: rgba(18, 18, 22, 0.7); 
-            backdrop-filter: blur(20px); 
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-        }
+    try {
+      // Simulasi pemanggilan API
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `Generate content ideas for: ${prompt}` }] }]
+        })
+      });
+      
+      const data = await response.json();
+      const output = data.candidates?.[0]?.content?.parts?.[0]?.text || "Maaf, terjadi kesalahan.";
+      
+      setResult({ type, text: output, timestamp: new Date().toLocaleTimeString() });
+      setHistory(prev => [{ type, prompt, timestamp: new Date().toLocaleTimeString() }, ...prev]);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        .gradient-text {
-            background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
+  const SidebarItem = ({ id, icon: Icon, label }) => (
+    <button 
+      onClick={() => setActiveTab(id)}
+      className={`w-full flex items-center space-x-3 p-3 rounded-xl transition-all ${
+        activeTab === id ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+      }`}
+    >
+      <Icon size={20} />
+      <span className="font-medium">{label}</span>
+    </button>
+  );
 
-        .nav-link-active {
-            background: rgba(99, 102, 241, 0.1);
-            color: #818cf8;
-            border-right: 3px solid #6366f1;
-        }
+  return (
+    <div className="flex h-screen bg-[#0a0a0c] text-white font-sans overflow-hidden">
+      {/* Sidebar */}
+      <div className="w-64 border-r border-gray-800 flex flex-col p-4 space-y-8 bg-[#0d0d0f]">
+        <div className="flex items-center space-x-2 px-2">
+          <div className="bg-indigo-600 p-2 rounded-lg">
+            <Sparkles className="text-white" size={20} />
+          </div>
+          <h1 className="text-xl font-bold tracking-tight">V-STUDIO</h1>
+        </div>
 
-        .custom-scroll::-webkit-scrollbar { width: 4px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #222; border-radius: 10px; }
+        <nav className="flex-1 space-y-2">
+          <SidebarItem id="dashboard" icon={LayoutGrid} label="Dashboard" />
+          <SidebarItem id="video" icon={Video} label="AI Video" />
+          <SidebarItem id="image" icon={ImageIcon} label="AI Image" />
+          <SidebarItem id="text" icon={Type} label="AI Copywriting" />
+          <SidebarItem id="tools" icon={Layers} label="Utility Tools" />
+        </nav>
 
-        .shimmer {
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
-            background-size: 200% 100%;
-            animation: shimmer 2s infinite;
-        }
+        <div className="p-4 bg-gray-900 rounded-2xl">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-gray-400 uppercase">Kredit Sisa</span>
+            <Zap size={14} className="text-yellow-400" />
+          </div>
+          <div className="text-lg font-bold">1,240 <span className="text-sm font-normal text-gray-500">Pts</span></div>
+          <div className="mt-3 w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
+            <div className="bg-indigo-500 w-3/4 h-full"></div>
+          </div>
+        </div>
+      </div>
 
-        @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
-        }
-    </style>
-</head>
-<body>
-    <div id="root"></div>
-
-    <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
-
-        const Icon = ({ name, size = 20, className = "" }) => {
-            useEffect(() => { lucide.createIcons(); }, [name]);
-            return <i data-lucide={name} className={className} style={{ width: size, height: size }}></i>;
-        };
-
-        const App = () => {
-            const [activeModule, setActiveModule] = useState('dashboard');
-            const [selectedModel, setSelectedModel] = useState('auto');
-            const [input, setInput] = useState('');
-            const [isGenerating, setIsGenerating] = useState(false);
-            const [history, setHistory] = useState([]);
-            const [response, setResponse] = useState(null);
-
-            const apiKeys = {
-                gemini: "AIzaSyBIJhS4rNFouHuXZlhdkGuYkMvIsq_3hsk",
-                groq: "gsk_vR8_0BZiQWmk42bQOKH6tHNZEftZLYfpCZA0UMCyG"
-            };
-
-            // Smart Orchestrator: Mencoba model terbaik secara otomatis
-            const orchestrateAI = async (promptText) => {
-                const models = [
-                    { name: "gemini-1.5-flash-latest", provider: "google" },
-                    { name: "gemini-1.5-pro", provider: "google" },
-                    { name: "llama3-70b-8192", provider: "groq" }
-                ];
-
-                for (let model of models) {
-                    try {
-                        if (model.provider === "google") {
-                            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model.name}:generateContent?key=${apiKeys.gemini}`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
-                            });
-                            const data = await res.json();
-                            if (data.candidates) return { text: data.candidates[0].content.parts[0].text, model: model.name };
-                        } else {
-                            const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKeys.groq}` },
-                                body: JSON.stringify({ model: model.name, messages: [{ role: "user", content: promptText }] })
-                            });
-                            const data = await res.json();
-                            if (data.choices) return { text: data.choices[0].message.content, model: model.name };
-                        }
-                    } catch (e) { console.warn(`Model ${model.name} failed, trying next...`); }
-                }
-                throw new Error("Semua model AI sedang sibuk. Silakan coba lagi nanti.");
-            };
-
-            const handleGenerate = async () => {
-                if (!input.trim()) return;
-                setIsGenerating(true);
-                setResponse(null);
-
-                try {
-                    const result = await orchestrateAI(input);
-                    setResponse({ content: result.text, model: result.model, error: false });
-                    setHistory(prev => [{ prompt: input, response: result.text, model: result.model }, ...prev.slice(0, 4)]);
-                    setInput('');
-                } catch (err) {
-                    setResponse({ content: err.message, error: true });
-                } finally {
-                    setIsGenerating(false);
-                }
-            };
-
-            return (
-                <div className="flex h-screen w-full bg-[#050507] text-white overflow-hidden">
-                    {/* Sidebar Area */}
-                    <aside className="w-80 border-r border-white/5 glass-card flex flex-col p-6 z-30">
-                        <div className="flex items-center gap-3 mb-10 px-2">
-                            <div className="w-12 h-12 bg-indigo-600 rounded-[18px] flex items-center justify-center shadow-2xl shadow-indigo-600/40">
-                                <Icon name="box" className="text-white fill-current" size={24} />
-                            </div>
-                            <div>
-                                <h1 className="text-xl font-extrabold tracking-tighter leading-none">V-STUDIO</h1>
-                                <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-[0.3em]">Orchestrator</span>
-                            </div>
-                        </div>
-
-                        <div className="flex-1 space-y-1 overflow-y-auto custom-scroll pr-2">
-                            <SidebarLink icon="layout-grid" label="Dashboard" active={activeModule === 'dashboard'} onClick={() => setActiveModule('dashboard')} />
-                            <div className="pt-8 pb-3 px-4 text-[10px] font-black text-gray-600 uppercase tracking-widest">AI Modules</div>
-                            <SidebarLink icon="message-square" label="AI Chat & Assistant" active={activeModule === 'chat'} onClick={() => setActiveModule('chat')} />
-                            <SidebarLink icon="image" label="Visual Generation" active={activeModule === 'image'} onClick={() => setActiveModule('image')} />
-                            <SidebarLink icon="code" label="Code Architect" active={activeModule === 'code'} onClick={() => setActiveModule('code')} />
-                            <SidebarLink icon="music" label="Audio Synthesis" active={activeModule === 'audio'} onClick={() => setActiveModule('audio')} />
-                            
-                            <div className="pt-8 pb-3 px-4 text-[10px] font-black text-gray-600 uppercase tracking-widest">Recent Activity</div>
-                            {history.map((item, idx) => (
-                                <div key={idx} className="p-3 mb-2 rounded-xl bg-white/[0.02] border border-white/5 cursor-pointer hover:bg-white/5 transition-all">
-                                    <p className="text-[10px] text-gray-500 truncate font-medium">{item.prompt}</p>
-                                    <p className="text-[9px] text-indigo-500 font-bold mt-1 uppercase tracking-tighter">{item.model}</p>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="mt-6 pt-6 border-t border-white/5">
-                            <div className="flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-br from-indigo-600/20 to-purple-600/20 border border-white/5">
-                                <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-black shadow-lg">AF</div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold">Ahmad Fajar</p>
-                                    <div className="flex items-center gap-1">
-                                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                                        <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-tighter">Pro Developer</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </aside>
-
-                    {/* Content Area */}
-                    <main className="flex-1 flex flex-col relative overflow-hidden bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-repeat">
-                        {/* Decorative Background */}
-                        <div className="absolute top-[-20%] left-[20%] w-[600px] h-[600px] bg-indigo-600/10 blur-[150px] rounded-full"></div>
-                        <div className="absolute bottom-[-10%] right-[10%] w-[400px] h-[400px] bg-pink-600/10 blur-[120px] rounded-full"></div>
-
-                        {/* Top Bar */}
-                        <header className="h-20 glass-card border-b border-white/5 flex items-center justify-between px-10 z-20">
-                            <div className="flex items-center gap-8">
-                                <div className="flex items-center gap-2">
-                                    <Icon name="cpu" size={16} className="text-indigo-500" />
-                                    <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Node: Indonesia-West-1</span>
-                                </div>
-                                <div className="h-4 w-px bg-white/10"></div>
-                                <div className="flex items-center gap-4">
-                                    <label className="text-[10px] font-bold text-gray-600 uppercase">Model Routing:</label>
-                                    <select 
-                                        value={selectedModel} 
-                                        onChange={(e) => setSelectedModel(e.target.value)}
-                                        className="bg-white/5 border border-white/10 rounded-lg px-3 py-1 text-[10px] font-bold outline-none cursor-pointer"
-                                    >
-                                        <option value="auto">Auto-Orchestrate (Best)</option>
-                                        <option value="gemini">Google Gemini 1.5</option>
-                                        <option value="groq">Groq Llama 3</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <button className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10"><Icon name="search" size={18} /></button>
-                                <button className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 relative">
-                                    <Icon name="bell" size={18} />
-                                    <span className="absolute top-2 right-2 w-2 h-2 bg-pink-500 rounded-full border-2 border-[#050507]"></span>
-                                </button>
-                                <button className="bg-white text-black px-6 py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-600 hover:text-white transition-all">Publish App</button>
-                            </div>
-                        </header>
-
-                        {/* Scrolling Content */}
-                        <div className="flex-1 overflow-y-auto custom-scroll p-10 z-10">
-                            {activeModule === 'dashboard' ? (
-                                <div className="space-y-12 animate-in fade-in slide-in-from-bottom-5 duration-700">
-                                    <div>
-                                        <h2 className="text-7xl font-black tracking-tighter mb-4 leading-none gradient-text">Studio Kreatif <br/>Serbaguna.</h2>
-                                        <p className="text-gray-400 text-lg max-w-2xl leading-relaxed">Selamat datang di pusat kendali AI Anda. Gabungan kekuatan dari berbagai model bahasa besar untuk hasil yang tanpa cela.</p>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                                        <StatBox label="API Latency" value="124ms" icon="zap" trend="+12%" />
-                                        <StatBox label="Tokens Used" value="14.2k" icon="database" trend="-5%" />
-                                        <StatBox label="AI Success" value="99.9%" icon="check-circle" trend="Stable" />
-                                        <StatBox label="Active Nodes" value="24/24" icon="globe" trend="Max" />
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                        <ModuleCard icon="pen-tool" title="Writer" desc="Naskah profesional & Copywriting." color="indigo" onClick={() => setActiveModule('chat')} />
-                                        <ModuleCard icon="monitor" title="App Builder" desc="Bangun UI secara visual." color="purple" onClick={() => setActiveModule('chat')} />
-                                        <ModuleCard icon="terminal" title="Debugger" desc="Analisis error kode otomatis." color="pink" onClick={() => setActiveModule('chat')} />
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="max-w-4xl mx-auto space-y-8 animate-in zoom-in-95 duration-500">
-                                    <div className="flex items-center justify-between border-b border-white/5 pb-8">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-600/30 flex items-center justify-center text-indigo-400">
-                                                <Icon name={activeModule === 'chat' ? 'message-square' : activeModule} size={24} />
-                                            </div>
-                                            <div>
-                                                <h2 className="text-3xl font-black tracking-tight capitalize">AI {activeModule} Studio</h2>
-                                                <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">Status: Multi-Model Sync Active</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Input Area */}
-                                    <div className="glass-card rounded-[32px] p-2">
-                                        <div className="bg-[#08080a] rounded-[30px] p-8 shadow-inner">
-                                            <textarea 
-                                                value={input}
-                                                onChange={(e) => setInput(e.target.value)}
-                                                placeholder="Berikan instruksi atau tempel kode Anda di sini..."
-                                                className="w-full bg-transparent border-none focus:ring-0 text-xl font-medium h-48 resize-none placeholder-gray-800 leading-relaxed custom-scroll"
-                                            />
-                                            <div className="flex items-center justify-between mt-6 pt-6 border-t border-white/5">
-                                                <div className="flex gap-2">
-                                                    <button className="p-3 bg-white/5 rounded-xl hover:bg-white/10 hover:text-white transition-all text-gray-500"><Icon name="paperclip" size={20} /></button>
-                                                    <button className="p-3 bg-white/5 rounded-xl hover:bg-white/10 hover:text-white transition-all text-gray-500"><Icon name="layers" size={20} /></button>
-                                                </div>
-                                                <button 
-                                                    onClick={handleGenerate}
-                                                    disabled={isGenerating || !input.trim()}
-                                                    className={`px-12 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center gap-3 ${isGenerating ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 shadow-2xl shadow-indigo-600/40 active:scale-95'}`}
-                                                >
-                                                    {isGenerating ? <Icon name="loader-2" className="animate-spin" /> : <Icon name="zap" />}
-                                                    <span>{isGenerating ? 'Orchestrating AI...' : 'Generate Result'}</span>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Result Area */}
-                                    {response && (
-                                        <div className={`glass-card p-10 rounded-[40px] space-y-8 animate-in slide-in-from-top-4 border ${response.error ? 'border-red-500/30' : 'border-indigo-500/20'} relative overflow-hidden`}>
-                                            {!response.error && <div className="absolute top-0 right-0 p-8 opacity-[0.03]"><Icon name="sparkles" size={150} /></div>}
-                                            <div className="flex items-center justify-between relative z-10">
-                                                <div className="flex items-center gap-4">
-                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${response.error ? 'bg-red-500/10 text-red-500' : 'bg-indigo-600/10 text-indigo-400'}`}>
-                                                        <Icon name={response.error ? "alert-triangle" : "cpu"} size={20} />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Source Response</p>
-                                                        <p className="text-xs font-bold text-white uppercase tracking-tighter">{response.model || 'System Error'}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    <button onClick={() => navigator.clipboard.writeText(response.content)} className="p-3 bg-white/5 rounded-xl hover:text-indigo-400"><Icon name="copy" size={18} /></button>
-                                                    <button className="p-3 bg-white/5 rounded-xl hover:text-indigo-400"><Icon name="maximize" size={18} /></button>
-                                                </div>
-                                            </div>
-                                            <div className={`leading-[1.8] text-lg whitespace-pre-wrap font-medium relative z-10 ${response.error ? 'text-red-400 font-mono text-sm' : 'text-gray-300'}`}>
-                                                {response.content}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </main>
-                </div>
-            );
-        };
-
-        const SidebarLink = ({ icon, label, active, onClick }) => (
-            <button onClick={onClick} className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all font-bold text-sm ${active ? 'nav-link-active' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>
-                <Icon name={icon} size={20} className={active ? "text-indigo-500" : ""} />
-                <span>{label}</span>
-            </button>
-        );
-
-        const StatBox = ({ label, value, icon, trend }) => (
-            <div className="glass-card p-6 rounded-3xl border border-white/5 group hover:border-white/10">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-gray-400 group-hover:bg-indigo-600 group-hover:text-white transition-all"><Icon name={icon} size={18} /></div>
-                    <span className={`text-[10px] font-black ${trend.includes('+') ? 'text-green-500' : trend.includes('-') ? 'text-red-500' : 'text-gray-500'}`}>{trend}</span>
-                </div>
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{label}</p>
-                <p className="text-2xl font-black tracking-tighter mt-1">{value}</p>
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-y-auto">
+        {/* Header */}
+        <header className="h-16 border-b border-gray-800 flex items-center justify-between px-8 bg-[#0a0a0c]/80 backdrop-blur-md sticky top-0 z-10">
+          <div className="relative w-96">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+            <input 
+              type="text" 
+              placeholder="Cari tools atau template..." 
+              className="w-full bg-gray-900 border border-gray-800 rounded-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm"
+            />
+          </div>
+          <div className="flex items-center space-x-4">
+            <button className="bg-white text-black px-4 py-2 rounded-full text-sm font-bold hover:bg-gray-200 transition-colors">Upgrade Pro</button>
+            <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center border-2 border-gray-800">
+              <UserCircle2 />
             </div>
-        );
+          </div>
+        </header>
 
-        const ModuleCard = ({ icon, title, desc, color, onClick }) => {
-            const colors = {
-                indigo: 'bg-indigo-600',
-                purple: 'bg-purple-600',
-                pink: 'bg-pink-600'
-            };
-            return (
-                <div onClick={onClick} className="glass-card p-8 rounded-[35px] group cursor-pointer hover:scale-[1.02] transition-all relative overflow-hidden h-full border-b-4 border-b-indigo-500/0 hover:border-b-indigo-500">
-                    <div className="absolute top-[-10px] right-[-10px] opacity-[0.02] group-hover:opacity-[0.08] group-hover:rotate-12 transition-all duration-500"><Icon name={icon} size={150} /></div>
-                    <div className={`${colors[color]} w-14 h-14 rounded-2xl flex items-center justify-center mb-6 shadow-2xl group-hover:scale-110`}>
-                        <Icon name={icon} className="text-white fill-current" size={28} />
+        {/* Dynamic View */}
+        <main className="p-8">
+          {activeTab === 'dashboard' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <section>
+                <h2 className="text-3xl font-bold mb-2">Selamat Datang Kreator!</h2>
+                <p className="text-gray-400">Pilih model AI favorit Anda dan mulai buat konten viral hari ini.</p>
+              </section>
+
+              {/* Quick Actions */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  { title: "Talking Avatar", icon: MonitorPlay, color: "bg-blue-500", desc: "Ubah foto menjadi video bicara." },
+                  { title: "AI Hugging Video", icon: UserCircle2, color: "bg-purple-500", desc: "Buat video pelukan emosional." },
+                  { title: "Pro Ad Gen", icon: Sparkles, color: "bg-orange-500", desc: "Generator iklan produk otomatis." }
+                ].map((item, i) => (
+                  <div key={i} className="group bg-[#151518] p-6 rounded-2xl border border-gray-800 hover:border-indigo-500/50 transition-all cursor-pointer">
+                    <div className={`${item.color} w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                      <item.icon className="text-white" size={24} />
                     </div>
-                    <h3 className="text-2xl font-black mb-3 tracking-tight">{title}</h3>
-                    <p className="text-gray-500 text-sm leading-relaxed mb-6">{desc}</p>
-                    <div className="flex items-center gap-2 text-indigo-400 text-[10px] font-black uppercase tracking-[0.2em] opacity-0 group-hover:opacity-100 transition-all">
-                        Initialize Node <Icon name="chevron-right" size={14} />
+                    <h3 className="text-xl font-bold mb-1">{item.title}</h3>
+                    <p className="text-gray-400 text-sm">{item.desc}</p>
+                    <div className="mt-4 flex items-center text-indigo-400 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                      Mulai Sekarang <ArrowRight size={14} className="ml-1" />
                     </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Integration Section */}
+              <section className="bg-gradient-to-br from-indigo-900/20 to-transparent p-8 rounded-3xl border border-indigo-500/20">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+                  <div className="max-w-md">
+                    <span className="bg-indigo-500/20 text-indigo-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4 inline-block">Multi-Model Terintegrasi</span>
+                    <h3 className="text-2xl font-bold mb-4">Akses Model AI Teratas dalam Satu Studio</h3>
+                    <p className="text-gray-400 mb-6">Kami menggabungkan kekuatan Sora, Veo, Flux, dan Gemini untuk memberikan fleksibilitas tanpa batas dalam satu alur kerja.</p>
+                    <div className="flex gap-4">
+                      {['OpenAI', 'Google', 'Midjourney', 'Anthropic'].map(brand => (
+                        <div key={brand} className="bg-white/5 px-3 py-1 rounded-lg text-xs border border-white/10 text-gray-300">{brand}</div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex-1 grid grid-cols-2 gap-4">
+                    {models.video.slice(0, 2).concat(models.image.slice(0, 2)).map(model => (
+                      <div key={model.id} className="bg-black/40 backdrop-blur-sm p-4 rounded-xl border border-white/5 flex items-center space-x-3">
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                        <div>
+                          <div className="text-xs text-gray-500">{model.provider}</div>
+                          <div className="text-sm font-bold">{model.name}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-            );
-        };
+              </section>
+            </div>
+          )}
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+          {/* Generator Tab */}
+          {(activeTab === 'video' || activeTab === 'image' || activeTab === 'text') && (
+            <div className="max-w-5xl mx-auto space-y-6 animate-in zoom-in-95 duration-300">
+              <div className="flex items-center space-x-2 text-indigo-400 mb-2">
+                <Sparkles size={18} />
+                <span className="font-bold uppercase text-xs tracking-widest">AI {activeTab.toUpperCase()} STUDIO</span>
+              </div>
+              <h2 className="text-4xl font-bold capitalize">Generator {activeTab}</h2>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Input Panel */}
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="bg-[#151518] p-6 rounded-3xl border border-gray-800 space-y-4">
+                    <label className="block text-sm font-medium text-gray-400">Deskripsikan konten Anda</label>
+                    <textarea 
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      placeholder="Contoh: Buatlah video pemandangan cyberpunk di Jakarta tahun 2077 dengan efek neon hujan..."
+                      className="w-full bg-gray-900/50 border border-gray-800 rounded-2xl p-4 h-40 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all resize-none text-lg"
+                    />
+                    
+                    <div className="flex flex-wrap gap-4">
+                      <select className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-2 text-sm focus:outline-none">
+                        <option>16:9 (Landscape)</option>
+                        <option>9:16 (Portrait)</option>
+                        <option>1:1 (Square)</option>
+                      </select>
+                      <select className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-2 text-sm focus:outline-none">
+                        <option>Kualitas: High</option>
+                        <option>Kualitas: Ultra (Pro)</option>
+                      </select>
+                    </div>
+
+                    <button 
+                      onClick={() => handleGenerate(activeTab)}
+                      disabled={loading || !prompt}
+                      className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 py-4 rounded-2xl font-bold flex items-center justify-center space-x-2 transition-all shadow-lg shadow-indigo-600/20"
+                    >
+                      {loading ? <Loader2 className="animate-spin" /> : <Zap size={20} />}
+                      <span>{loading ? 'Sedang Memproses...' : 'Generate Konten'}</span>
+                    </button>
+                  </div>
+
+                  {/* Result Area */}
+                  {result && (
+                    <div className="bg-[#151518] p-6 rounded-3xl border border-indigo-500/30 animate-in fade-in slide-in-from-top-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-2">
+                          <CheckCircle2 className="text-green-500" size={18} />
+                          <span className="text-sm font-bold">Hasil Generasi</span>
+                        </div>
+                        <span className="text-xs text-gray-500">{result.timestamp}</span>
+                      </div>
+                      <div className="prose prose-invert max-w-none text-gray-300 bg-gray-900/50 p-6 rounded-2xl border border-gray-800">
+                        {result.text.split('\n').map((line, i) => <p key={i}>{line}</p>)}
+                      </div>
+                      <div className="mt-6 flex gap-3">
+                        <button className="flex-1 bg-white text-black font-bold py-2 rounded-xl text-sm">Download Hasil</button>
+                        <button className="flex-1 border border-gray-700 hover:bg-gray-800 font-bold py-2 rounded-xl text-sm">Simpan ke Draft</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Settings Panel */}
+                <div className="space-y-6">
+                  <div className="bg-[#151518] p-6 rounded-3xl border border-gray-800">
+                    <h4 className="font-bold mb-4 flex items-center">
+                      <Settings className="mr-2 text-gray-400" size={18} /> Pilih Model
+                    </h4>
+                    <div className="space-y-3">
+                      {models[activeTab]?.map((model) => (
+                        <div 
+                          key={model.id}
+                          className="p-3 rounded-2xl border border-gray-800 hover:bg-gray-800/50 cursor-pointer transition-colors group"
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-bold text-sm group-hover:text-indigo-400">{model.name}</span>
+                            <span className="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full">{model.provider}</span>
+                          </div>
+                          <p className="text-[11px] text-gray-500">{model.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-[#151518] p-6 rounded-3xl border border-gray-800">
+                    <h4 className="font-bold mb-4 flex items-center">
+                      <Clock className="mr-2 text-gray-400" size={18} /> Riwayat Terakhir
+                    </h4>
+                    <div className="space-y-3">
+                      {history.length > 0 ? history.slice(0, 3).map((item, i) => (
+                        <div key={i} className="flex items-start space-x-3 p-2 hover:bg-gray-800 rounded-lg transition-colors">
+                          <div className="bg-gray-800 p-2 rounded-lg mt-1">
+                            {item.type === 'video' ? <Video size={14} /> : <ImageIcon size={14} />}
+                          </div>
+                          <div>
+                            <div className="text-xs font-medium truncate w-40">{item.prompt}</div>
+                            <div className="text-[10px] text-gray-500">{item.timestamp}</div>
+                          </div>
+                        </div>
+                      )) : (
+                        <div className="text-xs text-gray-500 text-center py-4 italic">Belum ada riwayat</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+};
+
+export default App;
