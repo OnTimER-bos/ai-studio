@@ -16,8 +16,14 @@ const App = () => {
     const [prompt, setPrompt] = useState('');
     const [result, setResult] = useState(null);
     
-    const apiKey = ""; // Kunci API otomatis
+    const apiKey = "AIzaSyDGj5VeZ9y7gKcsmbWrqB0_ptzoyBjHP1U"; // Kunci API gemini
+    
 
+    
+    const apiKey = "=r8_0BZiQWmk42bQOKH6tHNZEftZLYfpCZA0UMCyG"; // Kunci API otomatis
+
+
+    
     const models = {
         video: [
             { id: 'sora-2', name: 'Sora 2', provider: 'OpenAI', desc: 'Realistis & Sinematik' },
