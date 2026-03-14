@@ -10,21 +10,42 @@
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #020205; color: white; margin: 0; overflow: hidden; }
         .glass { background: rgba(10, 10, 15, 0.85); backdrop-filter: blur(25px); border: 1px solid rgba(255,255,255,0.05); }
-        .input-area { background: rgba(8, 8, 12, 0.98); border-top: 1px solid rgba(255,255,255,0.08); }
         .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #1e1e2e; border-radius: 10px; }
         .hidden { display: none !important; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .spinner { animation: spin 1s linear infinite; }
-        .message-card { animation: slideUp 0.3s ease-out; }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        .glow-indigo { box-shadow: 0 0 20px rgba(79, 70, 229, 0.15); }
+        /* Navigasi Bawah Mobile */
+        .mobile-nav { display: none; }
+        @media (max-width: 768px) {
+            .mobile-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: 70px; background: rgba(10,10,15,0.95); backdrop-filter: blur(20px); border-top: 1px solid rgba(255,255,255,0.1); z-index: 100; justify-content: space-around; items-center; padding-bottom: env(safe-area-inset-bottom); }
+        }
+
+        /* Modal Style */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .modal-content { background: #0a0a0f; border: 1px solid rgba(255,255,255,0.1); border-radius: 32px; width: 100%; max-width: 450px; padding: 32px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
     </style>
 </head>
 <body class="flex h-screen">
 
-    <!-- Sidebar -->
+    <!-- Modal API Key -->
+    <div id="key-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-black italic text-indigo-500">System Key</h3>
+                <button onclick="toggleModal(false)" class="text-gray-500 hover:text-white"><i data-lucide="x"></i></button>
+            </div>
+            <p class="text-xs text-gray-500 mb-4 font-bold uppercase tracking-widest">Masukkan Google Gemini API Key</p>
+            <input type="password" id="key-input" placeholder="AIzaSy..." 
+                class="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 outline-none focus:border-indigo-500 text-white text-sm font-mono mb-6">
+            <div class="flex gap-3">
+                <button onclick="saveKey()" class="flex-1 bg-indigo-600 py-4 rounded-2xl font-bold hover:bg-indigo-500 transition-all active:scale-95 shadow-lg shadow-indigo-600/20">Simpan & Aktifkan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar Desktop -->
     <aside class="w-72 glass hidden md:flex flex-col p-8 shrink-0">
         <div class="flex items-center gap-4 mb-16">
             <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-600/40">
@@ -33,113 +54,114 @@
             <span class="font-black tracking-tighter text-xl uppercase">V-STUDIO</span>
         </div>
         <nav class="flex-1 space-y-3">
-            <div id="nav-dash" onclick="switchTab('dashboard')" class="p-4 bg-indigo-600/10 text-indigo-400 rounded-2xl flex items-center gap-3 text-sm font-bold border-r-4 border-indigo-600 cursor-pointer transition-all">
+            <div id="nav-dash" onclick="switchTab('dashboard')" class="p-4 bg-indigo-600/10 text-indigo-400 rounded-2xl flex items-center gap-3 text-sm font-bold border-r-4 border-indigo-600 cursor-pointer">
                 <i data-lucide="layout-grid" size="18"></i> Dashboard
             </div>
             <div id="nav-chat" onclick="switchTab('chat')" class="p-4 text-gray-600 hover:text-white cursor-pointer flex items-center gap-3 text-sm font-bold transition-all rounded-2xl hover:bg-white/5">
-                <i data-lucide="message-square" size="18"></i> AI Chat Studio
-            </div>
-            <div onclick="resetKey()" class="p-4 text-gray-600 hover:text-red-400 cursor-pointer flex items-center gap-3 text-sm font-bold transition-all rounded-2xl hover:bg-red-500/5 mt-10">
-                <i data-lucide="log-out" size="18"></i> Reset System Key
+                <i data-lucide="message-square" size="18"></i> AI Studio
             </div>
         </nav>
         <div class="mt-auto p-4 bg-white/5 rounded-2xl flex items-center gap-3 border border-white/5">
             <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center font-black text-xs">AF</div>
-            <div class="overflow-hidden">
-                <p class="text-xs font-bold truncate italic">Admin Fajar</p>
-                <p id="core-status" class="text-[9px] text-gray-600 font-black uppercase tracking-widest">Inactive</p>
+            <div class="overflow-hidden text-left">
+                <p class="text-xs font-bold truncate">Admin Fajar</p>
+                <p id="core-status-side" class="text-[9px] text-gray-600 font-black uppercase tracking-widest">Inactive</p>
             </div>
         </div>
     </aside>
 
-    <!-- Main -->
+    <!-- Bottom Nav Mobile -->
+    <div class="mobile-nav">
+        <button onclick="switchTab('dashboard')" class="flex flex-col items-center gap-1 text-indigo-500" id="m-nav-dash">
+            <i data-lucide="layout-grid" size="20"></i>
+            <span class="text-[10px] font-bold">Dash</span>
+        </button>
+        <button onclick="switchTab('chat')" class="flex flex-col items-center gap-1 text-gray-500" id="m-nav-chat">
+            <i data-lucide="message-square" size="20"></i>
+            <span class="text-[10px] font-bold">Studio</span>
+        </button>
+        <button onclick="toggleModal(true)" class="flex flex-col items-center gap-1 text-gray-500">
+            <i data-lucide="settings" size="20"></i>
+            <span class="text-[10px] font-bold">Key</span>
+        </button>
+    </div>
+
+    <!-- Main Content -->
     <main class="flex-1 flex flex-col relative overflow-hidden bg-[#020205]">
-        <header class="h-20 border-b border-white/5 flex items-center px-10 justify-between shrink-0 bg-[#020205]/50 backdrop-blur-md z-10">
-            <div class="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500 italic">Core v7.0 Dashboard Edition</div>
-            <div id="status-text" class="text-[10px] font-bold text-gray-700 uppercase flex items-center gap-2">
-                <div class="w-2 h-2 rounded-full bg-gray-700"></div> System Standby
+        <header class="h-20 border-b border-white/5 flex items-center px-6 md:px-10 justify-between shrink-0 bg-[#020205]/50 backdrop-blur-md z-10">
+            <div class="flex flex-col">
+                <div class="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 italic">V-STUDIO CORE v7.2</div>
+                <div id="status-text" class="text-[9px] font-bold text-gray-700 uppercase flex items-center gap-2 mt-1">
+                    <div class="w-1.5 h-1.5 rounded-full bg-gray-700"></div> System Offline
+                </div>
             </div>
+            
+            <button onclick="toggleModal(true)" class="hidden md:flex items-center gap-3 bg-white/5 hover:bg-white/10 px-5 py-2.5 rounded-2xl border border-white/5 transition-all active:scale-95">
+                <i data-lucide="key" size="14" class="text-indigo-500"></i>
+                <span class="text-[10px] font-black uppercase tracking-widest">Set Key</span>
+            </button>
         </header>
 
-        <!-- Container Konten -->
-        <div class="flex-1 overflow-y-auto custom-scroll relative">
+        <div class="flex-1 overflow-y-auto custom-scroll relative pb-24 md:pb-0">
             
             <!-- TAB DASHBOARD -->
             <section id="tab-dashboard" class="p-8 md:p-16 max-w-5xl mx-auto space-y-12">
                 <div class="space-y-4">
-                    <h1 class="text-5xl font-black tracking-tighter">Control <span class="text-indigo-600 italic">Center.</span></h1>
-                    <p class="text-gray-500 max-w-lg leading-relaxed">Kelola otorisasi sistem dan pantau status koneksi AI Anda melalui panel ini.</p>
+                    <h1 class="text-4xl md:text-6xl font-black tracking-tighter leading-none">Control <br/><span class="text-indigo-600 italic">Center Studio.</span></h1>
+                    <p class="text-gray-500 text-sm md:text-lg max-w-lg leading-relaxed italic">Kelola otorisasi sistem dan pantau status koneksi AI Anda melalui panel ini.</p>
                 </div>
 
-                <!-- Card Aktivasi (Hanya muncul jika key belum ada) -->
-                <div id="activation-card" class="bg-[#0a0a0f] p-10 rounded-[40px] border border-indigo-500/20 glow-indigo relative overflow-hidden">
-                    <div class="absolute top-0 right-0 p-8 opacity-10">
-                        <i data-lucide="shield-check" size="120"></i>
-                    </div>
-                    <div class="relative z-10">
-                        <h2 class="text-2xl font-black mb-2 flex items-center gap-3">
-                            <i data-lucide="key" class="text-indigo-500"></i> Aktivasi Core Engine
-                        </h2>
-                        <p class="text-gray-500 text-sm mb-8">Tempel API Key Gemini Anda untuk membuka fitur AI Studio.</p>
-                        
-                        <div class="flex flex-col md:flex-row gap-4">
-                            <input type="text" id="key-input" placeholder="Masukkan API Key (AIzaSy...)" 
-                                class="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 outline-none focus:border-indigo-500 text-white text-sm font-mono">
-                            <button onclick="saveKey()" class="bg-indigo-600 px-8 py-4 rounded-2xl font-bold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20 active:scale-95 whitespace-nowrap">
-                                Aktifkan Sekarang
-                            </button>
-                        </div>
-                        <button onclick="pasteFromClipboard()" class="mt-4 text-[10px] text-gray-500 hover:text-indigo-400 font-bold uppercase tracking-widest flex items-center gap-2 transition-all">
-                            <i data-lucide="clipboard" size="12"></i> Paste dari Clipboard
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Stats Grid (Selalu Muncul) -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="bg-white/5 p-8 rounded-[32px] border border-white/5">
-                        <div class="w-10 h-10 bg-indigo-600/20 rounded-xl flex items-center justify-center text-indigo-500 mb-6">
-                            <i data-lucide="cpu" size="20"></i>
+                    <div class="bg-white/5 p-8 rounded-[32px] border border-white/5 space-y-4 hover:border-indigo-500/20 transition-all">
+                        <div class="w-12 h-12 bg-indigo-600/10 rounded-2xl flex items-center justify-center text-indigo-500"><i data-lucide="cpu" size="24"></i></div>
+                        <div>
+                            <p class="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Model Engine</p>
+                            <p class="text-lg font-black uppercase">Gemini 1.5 Flash</p>
                         </div>
-                        <h3 class="text-sm font-bold text-gray-400 mb-1">Model Engine</h3>
-                        <p class="text-xl font-black tracking-tight">Gemini 1.5 Flash</p>
                     </div>
-                    <div class="bg-white/5 p-8 rounded-[32px] border border-white/5">
-                        <div class="w-10 h-10 bg-green-600/20 rounded-xl flex items-center justify-center text-green-500 mb-6">
-                            <i data-lucide="globe" size="20"></i>
+                    <div class="bg-white/5 p-8 rounded-[32px] border border-white/5 space-y-4 hover:border-green-500/20 transition-all">
+                        <div class="w-12 h-12 bg-green-600/10 rounded-2xl flex items-center justify-center text-green-500"><i data-lucide="globe" size="24"></i></div>
+                        <div>
+                            <p class="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Region Status</p>
+                            <p id="conn-stat" class="text-lg font-black uppercase">Offline</p>
                         </div>
-                        <h3 class="text-sm font-bold text-gray-400 mb-1">Region Status</h3>
-                        <p class="text-xl font-black tracking-tight">Global / Stable</p>
                     </div>
-                    <div class="bg-white/5 p-8 rounded-[32px] border border-white/5">
-                        <div class="w-10 h-10 bg-orange-600/20 rounded-xl flex items-center justify-center text-orange-500 mb-6">
-                            <i data-lucide="zap" size="20"></i>
+                    <div class="bg-white/5 p-8 rounded-[32px] border border-white/5 space-y-4 hover:border-orange-500/20 transition-all">
+                        <div class="w-12 h-12 bg-orange-600/10 rounded-2xl flex items-center justify-center text-orange-500"><i data-lucide="zap" size="24"></i></div>
+                        <div>
+                            <p class="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Latency</p>
+                            <p class="text-lg font-black uppercase">Ultra-Fast</p>
                         </div>
-                        <h3 class="text-sm font-bold text-gray-400 mb-1">Latency</h3>
-                        <p class="text-xl font-black tracking-tight">Ultra-Fast</p>
                     </div>
+                </div>
+
+                <div id="no-key-warning" class="bg-red-500/10 border border-red-500/20 p-6 rounded-3xl flex items-center gap-4">
+                    <i data-lucide="alert-triangle" class="text-red-500"></i>
+                    <p class="text-xs font-bold text-red-400 uppercase tracking-wider">System Key belum terpasang. Klik 'Set Key' untuk aktivasi.</p>
                 </div>
             </section>
 
-            <!-- TAB CHAT (Awalnya tersembunyi) -->
-            <section id="tab-chat" class="hidden flex flex-col h-full">
-                <div id="chat-display" class="flex-1 overflow-y-auto p-6 md:p-12 space-y-8 custom-scroll h-[calc(100vh-180px)]">
-                    <div id="welcome-msg" class="text-center py-20">
-                        <h2 class="text-4xl font-black mb-4">Studio <span class="text-indigo-600 italic">Aktif.</span></h2>
-                        <p class="text-gray-500 text-sm">Apa yang ingin kita buat hari ini?</p>
+            <!-- TAB CHAT -->
+            <section id="tab-chat" class="hidden flex flex-col h-full absolute inset-0 bg-[#020205]">
+                <div id="chat-display" class="flex-1 overflow-y-auto p-4 md:p-12 space-y-6 custom-scroll">
+                    <div id="welcome-msg" class="text-center py-20 opacity-50">
+                        <div class="w-16 h-16 bg-indigo-600/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <i data-lucide="sparkles" class="text-indigo-500"></i>
+                        </div>
+                        <h2 class="text-2xl font-black mb-2 italic tracking-tighter text-white">Studio Aktif.</h2>
+                        <p class="text-xs text-gray-500 font-bold uppercase tracking-widest">Apa yang ingin Anda tanyakan hari ini?</p>
                     </div>
                 </div>
                 
-                <div class="p-8 bg-[#020205] border-t border-white/5">
-                    <div class="max-w-4xl mx-auto flex items-center gap-3 bg-[#0a0a0f] p-2 rounded-[30px] border border-white/10 shadow-2xl">
-                        <input type="text" id="msg-input" placeholder="Ketik instruksi di sini..." class="flex-1 bg-transparent px-8 py-5 outline-none text-sm text-white font-medium">
-                        <button onclick="send()" class="bg-indigo-600 w-16 h-16 rounded-[24px] hover:bg-indigo-500 transition-all text-white flex items-center justify-center shrink-0 shadow-lg shadow-indigo-600/20">
-                            <i data-lucide="send" size="24"></i>
+                <div class="p-4 md:p-8 bg-[#020205] border-t border-white/5">
+                    <div class="max-w-4xl mx-auto flex items-center gap-2 bg-[#0a0a0f] p-1.5 rounded-full border border-white/10 shadow-2xl">
+                        <input type="text" id="msg-input" placeholder="Tanyakan sesuatu..." class="flex-1 bg-transparent px-6 py-4 outline-none text-sm text-white font-medium">
+                        <button onclick="send()" class="bg-indigo-600 w-12 h-12 md:w-14 md:h-14 rounded-full hover:bg-indigo-500 transition-all text-white flex items-center justify-center shrink-0 shadow-lg shadow-indigo-600/20">
+                            <i data-lucide="arrow-up" size="20"></i>
                         </button>
                     </div>
                 </div>
             </section>
-
         </div>
     </main>
 
@@ -147,75 +169,69 @@
         lucide.createIcons();
         
         let api_key = localStorage.getItem('vstudio_dash_core');
-        const activationCard = document.getElementById('activation-card');
-        const coreStatusText = document.getElementById('core-status');
+        const coreStatusSide = document.getElementById('core-status-side');
         const statusHeader = document.getElementById('status-text');
+        const connStat = document.getElementById('conn-stat');
+        const keyWarning = document.getElementById('no-key-warning');
 
-        // Inisialisasi Tampilan Berdasarkan API Key
-        function initSystem() {
-            if (api_key && api_key.length > 10) {
-                activationCard.classList.add('hidden');
-                coreStatusText.innerText = 'Active Core';
-                coreStatusText.classList.replace('text-gray-600', 'text-green-500');
-                statusHeader.innerHTML = '<div class="w-2 h-2 rounded-full bg-green-500"></div> Core Connected';
-            } else {
-                activationCard.classList.remove('hidden');
-            }
+        function toggleModal(show) {
+            document.getElementById('key-modal').style.display = show ? 'flex' : 'none';
         }
 
-        initSystem();
-
-        // Navigasi Tab
-        function switchTab(tab) {
-            const dash = document.getElementById('tab-dashboard');
-            const chat = document.getElementById('tab-chat');
-            const navDash = document.getElementById('nav-dash');
-            const navChat = document.getElementById('nav-chat');
-
-            if (tab === 'chat') {
-                if (!api_key) {
-                    alert("Mohon aktifkan Core Engine di Dashboard terlebih dahulu!");
-                    return;
-                }
-                dash.classList.add('hidden');
-                chat.classList.remove('hidden');
-                navChat.classList.add('bg-indigo-600/10', 'text-indigo-400', 'border-r-4', 'border-indigo-600');
-                navDash.classList.remove('bg-indigo-600/10', 'text-indigo-400', 'border-r-4', 'border-indigo-600');
+        function init() {
+            if (api_key && api_key.length > 20) {
+                coreStatusSide.innerText = 'Active Core';
+                coreStatusSide.classList.replace('text-gray-600', 'text-green-500');
+                statusHeader.innerHTML = '<div class="w-1.5 h-1.5 rounded-full bg-green-500 shadow-lg"></div> Online & Ready';
+                connStat.innerText = 'Global / Stable';
+                connStat.classList.add('text-green-500');
+                keyWarning.classList.add('hidden');
             } else {
-                dash.classList.remove('hidden');
-                chat.classList.add('hidden');
-                navDash.classList.add('bg-indigo-600/10', 'text-indigo-400', 'border-r-4', 'border-indigo-600');
-                navChat.classList.remove('bg-indigo-600/10', 'text-indigo-400', 'border-r-4', 'border-indigo-600');
+                keyWarning.classList.remove('hidden');
             }
             lucide.createIcons();
         }
 
-        async function pasteFromClipboard() {
-            try {
-                const text = await navigator.clipboard.readText();
-                document.getElementById('key-input').value = text.trim();
-            } catch (err) { console.log("Manual Paste!"); }
+        init();
+
+        function switchTab(tab) {
+            const dash = document.getElementById('tab-dashboard');
+            const chat = document.getElementById('tab-chat');
+            const mNavDash = document.getElementById('m-nav-dash');
+            const mNavChat = document.getElementById('m-nav-chat');
+
+            if (tab === 'chat') {
+                if (!api_key) {
+                    toggleModal(true);
+                    return;
+                }
+                dash.classList.add('hidden');
+                chat.classList.remove('hidden');
+                mNavChat.classList.add('text-indigo-500');
+                mNavChat.classList.remove('text-gray-500');
+                mNavDash.classList.add('text-gray-500');
+                mNavDash.classList.remove('text-indigo-500');
+            } else {
+                dash.classList.remove('hidden');
+                chat.classList.add('hidden');
+                mNavDash.classList.add('text-indigo-500');
+                mNavDash.classList.remove('text-gray-500');
+                mNavChat.classList.add('text-gray-500');
+                mNavChat.classList.remove('text-indigo-500');
+            }
+            lucide.createIcons();
         }
 
         function saveKey() {
             const v = document.getElementById('key-input').value.trim();
-            if (v && v.length > 10) { 
+            if (v.length > 20) { 
                 localStorage.setItem('vstudio_dash_core', v); 
-                api_key = v;
                 location.reload(); 
             } else {
-                alert("API Key tidak valid!");
+                alert("Key tidak valid!");
             }
         }
 
-        function resetKey() {
-            if(confirm("Apakah Anda ingin mereset koneksi Core?")) {
-                localStorage.removeItem('vstudio_dash_core');
-                location.reload();
-            }
-        }
-
-        // Logic Chat
         async function send() {
             const input = document.getElementById('msg-input');
             const display = document.getElementById('chat-display');
@@ -226,16 +242,16 @@
 
             welcome.classList.add('hidden');
             input.value = '';
-            statusHeader.innerHTML = '<div class="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></div> Processing...';
+            statusHeader.innerHTML = '<div class="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></div> Thinking...';
 
             const card = document.createElement('div');
-            card.className = "message-card bg-white/5 p-8 rounded-[35px] border border-white/5 max-w-4xl mx-auto space-y-4";
+            card.className = "bg-white/5 p-6 rounded-[28px] border border-white/5 max-w-4xl mx-auto space-y-3";
             card.innerHTML = `
-                <div class="flex items-center gap-2 text-[10px] font-black text-gray-600 uppercase italic"><i data-lucide="user" size="12"></i> Input</div>
-                <p class="text-gray-300 font-medium">${text}</p>
-                <div class="res mt-6 text-sm text-gray-400 bg-black/40 p-6 rounded-2xl border border-white/5 whitespace-pre-wrap leading-relaxed shadow-inner">
-                    <div class="flex items-center gap-2 text-indigo-500 animate-pulse font-bold text-xs uppercase">
-                        <i data-lucide="loader-2" size="14" class="spinner"></i> Core Thinking...
+                <p class="text-indigo-400 text-[10px] font-black uppercase tracking-widest">You</p>
+                <p class="text-gray-300 text-sm font-medium leading-relaxed">${text}</p>
+                <div class="res mt-4 text-sm text-gray-400 bg-black/40 p-5 rounded-2xl border border-white/5 whitespace-pre-wrap leading-relaxed italic">
+                    <div class="flex items-center gap-2 text-indigo-500 animate-pulse font-bold text-[10px] uppercase">
+                        <i data-lucide="loader-2" size="12" class="spinner"></i> Core Processing...
                     </div>
                 </div>`;
             display.prepend(card);
@@ -249,12 +265,13 @@
                     body: JSON.stringify({ contents: [{ parts: [{ text: text }] }] })
                 });
                 const d = await r.json();
-                const out = d.candidates?.[0]?.content?.parts?.[0]?.text || "Error: Key tidak valid atau limit tercapai.";
+                const out = d.candidates?.[0]?.content?.parts?.[0]?.text || "Key error atau limit habis.";
                 card.querySelector('.res').innerText = out;
+                card.querySelector('.res').classList.remove('italic');
             } catch (e) {
-                card.querySelector('.res').innerHTML = `<span class="text-red-500 font-bold italic">Connection Timeout.</span>`;
+                card.querySelector('.res').innerHTML = `<span class="text-red-500">Error Connection.</span>`;
             } finally {
-                statusHeader.innerHTML = '<div class="w-2 h-2 rounded-full bg-green-500"></div> Core Connected';
+                statusHeader.innerHTML = '<div class="w-1.5 h-1.5 rounded-full bg-green-500 shadow-lg"></div> Online & Ready';
                 lucide.createIcons();
             }
         }
@@ -262,4 +279,4 @@
         document.getElementById('msg-input').onkeypress = (e) => { if(e.key === 'Enter') send(); };
     </script>
 </body>
-</html>
+    </html>
