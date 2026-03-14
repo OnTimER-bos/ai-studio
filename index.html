@@ -1,220 +1,293 @@
-<!DOCTYPE html>
+                <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>V-STUDIO | Next-Gen AI Platform</title>
+    <title>V-STUDIO PRO | AI Orchestrator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #050505; color: white; overflow-x: hidden; }
-        .glass { background: rgba(20, 20, 20, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .sidebar-active { background: linear-gradient(90deg, rgba(79, 70, 229, 0.2) 0%, rgba(79, 70, 229, 0) 100%); border-left: 3px solid #6366f1; color: white; }
-        .animate-float { animation: float 6s ease-in-out infinite; }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #222; border-radius: 10px; }
-        .neon-border { position: relative; }
-        .neon-border::after { content: ''; position: absolute; inset: -1px; background: linear-gradient(45deg, #6366f1, #a855f7); border-radius: inherit; z-index: -1; opacity: 0.3; }
-        textarea::placeholder { color: #444; }
+        * { font-family: 'Plus Jakarta Sans', sans-serif; transition: all 0.2s ease-in-out; }
+        body { background: #050507; color: #ffffff; overflow: hidden; }
+        
+        /* Glassmorphism Ultra */
+        .glass-card { 
+            background: rgba(18, 18, 22, 0.7); 
+            backdrop-filter: blur(20px); 
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-link-active {
+            background: rgba(99, 102, 241, 0.1);
+            color: #818cf8;
+            border-right: 3px solid #6366f1;
+        }
+
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #222; border-radius: 10px; }
+
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useMemo } = React;
 
-        const LucideIcon = ({ name, size = 20, className = "" }) => {
+        const Icon = ({ name, size = 20, className = "" }) => {
             useEffect(() => { lucide.createIcons(); }, [name]);
             return <i data-lucide={name} className={className} style={{ width: size, height: size }}></i>;
         };
 
         const App = () => {
-            const [activeTab, setActiveTab] = useState('dashboard');
-            const [loading, setLoading] = useState(false);
-            const [prompt, setPrompt] = useState('');
-            const [result, setResult] = useState(null);
-            const [selectedEngine, setSelectedEngine] = useState('gemini');
+            const [activeModule, setActiveModule] = useState('dashboard');
+            const [selectedModel, setSelectedModel] = useState('auto');
+            const [input, setInput] = useState('');
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [history, setHistory] = useState([]);
+            const [response, setResponse] = useState(null);
 
             const apiKeys = {
-                gemini: "AIzaSyBIJhS4rNFouHuXZlhdkGuYkMvIsq_3hsk".trim(),
-                groq: "gsk_vR8_0BZiQWmk42bQOKH6tHNZEftZLYfpCZA0UMCyG".trim()
+                gemini: "AIzaSyBIJhS4rNFouHuXZlhdkGuYkMvIsq_3hsk",
+                groq: "gsk_vR8_0BZiQWmk42bQOKH6tHNZEftZLYfpCZA0UMCyG"
             };
 
-            const callGemini = async (text) => {
-                // Mencoba v1beta yang paling fleksibel untuk key baru
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKeys.gemini}`;
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text }] }] })
-                });
-                const data = await response.json();
-                if (data.error) throw new Error(data.error.message);
-                return data.candidates[0].content.parts[0].text;
+            // Smart Orchestrator: Mencoba model terbaik secara otomatis
+            const orchestrateAI = async (promptText) => {
+                const models = [
+                    { name: "gemini-1.5-flash-latest", provider: "google" },
+                    { name: "gemini-1.5-pro", provider: "google" },
+                    { name: "llama3-70b-8192", provider: "groq" }
+                ];
+
+                for (let model of models) {
+                    try {
+                        if (model.provider === "google") {
+                            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model.name}:generateContent?key=${apiKeys.gemini}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+                            });
+                            const data = await res.json();
+                            if (data.candidates) return { text: data.candidates[0].content.parts[0].text, model: model.name };
+                        } else {
+                            const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKeys.groq}` },
+                                body: JSON.stringify({ model: model.name, messages: [{ role: "user", content: promptText }] })
+                            });
+                            const data = await res.json();
+                            if (data.choices) return { text: data.choices[0].message.content, model: model.name };
+                        }
+                    } catch (e) { console.warn(`Model ${model.name} failed, trying next...`); }
+                }
+                throw new Error("Semua model AI sedang sibuk. Silakan coba lagi nanti.");
             };
 
             const handleGenerate = async () => {
-                if (!prompt.trim()) return;
-                setLoading(true);
-                setResult(null);
+                if (!input.trim()) return;
+                setIsGenerating(true);
+                setResponse(null);
+
                 try {
-                    let text = "";
-                    if (selectedEngine === 'gemini') {
-                        text = await callGemini(prompt);
-                    } else {
-                        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKeys.groq}` },
-                            body: JSON.stringify({ model: "llama3-8b-8192", messages: [{ role: "user", content: prompt }] })
-                        });
-                        const data = await res.json();
-                        text = data.choices[0].message.content;
-                    }
-                    setResult({ text, isError: false });
+                    const result = await orchestrateAI(input);
+                    setResponse({ content: result.text, model: result.model, error: false });
+                    setHistory(prev => [{ prompt: input, response: result.text, model: result.model }, ...prev.slice(0, 4)]);
+                    setInput('');
                 } catch (err) {
-                    setResult({ text: err.message, isError: true });
+                    setResponse({ content: err.message, error: true });
                 } finally {
-                    setLoading(false);
+                    setIsGenerating(false);
                 }
             };
 
             return (
-                <div className="flex h-screen w-full bg-[#050505]">
-                    {/* Sidebar */}
-                    <aside className="w-72 glass border-r border-white/5 flex flex-col p-6 z-20">
-                        <div className="flex items-center space-x-3 mb-12">
-                            <div className="w-10 h-10 bg-gradient-to-tr from-indigo-600 to-purple-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                                <LucideIcon name="zap" className="text-white fill-current" />
+                <div className="flex h-screen w-full bg-[#050507] text-white overflow-hidden">
+                    {/* Sidebar Area */}
+                    <aside className="w-80 border-r border-white/5 glass-card flex flex-col p-6 z-30">
+                        <div className="flex items-center gap-3 mb-10 px-2">
+                            <div className="w-12 h-12 bg-indigo-600 rounded-[18px] flex items-center justify-center shadow-2xl shadow-indigo-600/40">
+                                <Icon name="box" className="text-white fill-current" size={24} />
                             </div>
-                            <span className="text-xl font-extrabold tracking-tighter">V-STUDIO <span className="text-indigo-500">PRO</span></span>
+                            <div>
+                                <h1 className="text-xl font-extrabold tracking-tighter leading-none">V-STUDIO</h1>
+                                <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-[0.3em]">Orchestrator</span>
+                            </div>
                         </div>
 
-                        <nav className="flex-1 space-y-2">
-                            <SidebarItem icon="layout-grid" label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-                            <div className="pt-6 pb-2 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Kreativitas AI</div>
-                            <SidebarItem icon="type" label="AI Writing" active={activeTab === 'text'} onClick={() => setActiveTab('text')} />
-                            <SidebarItem icon="image" label="AI Image" active={activeTab === 'image'} onClick={() => setActiveTab('image')} />
-                            <SidebarItem icon="video" label="AI Video" active={activeTab === 'video'} onClick={() => setActiveTab('video')} />
-                            <SidebarItem icon="music" label="AI Music" active={activeTab === 'music'} onClick={() => setActiveTab('music')} />
-                        </nav>
-
-                        <div className="mt-auto space-y-4">
-                            <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
-                                <p className="text-[10px] text-gray-500 font-bold uppercase mb-3 block text-center">Engine Aktif</p>
-                                <div className="flex p-1 bg-black rounded-xl">
-                                    <button onClick={() => setSelectedEngine('gemini')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold transition-all ${selectedEngine === 'gemini' ? 'bg-indigo-600 shadow-lg' : 'text-gray-500'}`}>GEMINI</button>
-                                    <button onClick={() => setSelectedEngine('groq')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold transition-all ${selectedEngine === 'groq' ? 'bg-orange-600 shadow-lg' : 'text-gray-500'}`}>GROQ</button>
+                        <div className="flex-1 space-y-1 overflow-y-auto custom-scroll pr-2">
+                            <SidebarLink icon="layout-grid" label="Dashboard" active={activeModule === 'dashboard'} onClick={() => setActiveModule('dashboard')} />
+                            <div className="pt-8 pb-3 px-4 text-[10px] font-black text-gray-600 uppercase tracking-widest">AI Modules</div>
+                            <SidebarLink icon="message-square" label="AI Chat & Assistant" active={activeModule === 'chat'} onClick={() => setActiveModule('chat')} />
+                            <SidebarLink icon="image" label="Visual Generation" active={activeModule === 'image'} onClick={() => setActiveModule('image')} />
+                            <SidebarLink icon="code" label="Code Architect" active={activeModule === 'code'} onClick={() => setActiveModule('code')} />
+                            <SidebarLink icon="music" label="Audio Synthesis" active={activeModule === 'audio'} onClick={() => setActiveModule('audio')} />
+                            
+                            <div className="pt-8 pb-3 px-4 text-[10px] font-black text-gray-600 uppercase tracking-widest">Recent Activity</div>
+                            {history.map((item, idx) => (
+                                <div key={idx} className="p-3 mb-2 rounded-xl bg-white/[0.02] border border-white/5 cursor-pointer hover:bg-white/5 transition-all">
+                                    <p className="text-[10px] text-gray-500 truncate font-medium">{item.prompt}</p>
+                                    <p className="text-[9px] text-indigo-500 font-bold mt-1 uppercase tracking-tighter">{item.model}</p>
                                 </div>
-                            </div>
-                            <div className="flex items-center space-x-3 p-3 rounded-2xl bg-indigo-600/10 border border-indigo-600/20">
-                                <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold">V</div>
+                            ))}
+                        </div>
+
+                        <div className="mt-6 pt-6 border-t border-white/5">
+                            <div className="flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-br from-indigo-600/20 to-purple-600/20 border border-white/5">
+                                <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-black shadow-lg">AF</div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-bold truncate">Premium User</p>
-                                    <p className="text-[10px] text-indigo-400">Pro Plan Active</p>
+                                    <p className="text-sm font-bold">Ahmad Fajar</p>
+                                    <div className="flex items-center gap-1">
+                                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                                        <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-tighter">Pro Developer</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </aside>
 
-                    {/* Main Content */}
-                    <main className="flex-1 flex flex-col relative overflow-hidden">
-                        {/* Background Decor */}
-                        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-600/10 blur-[120px] rounded-full"></div>
-                        <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-purple-600/10 blur-[120px] rounded-full"></div>
+                    {/* Content Area */}
+                    <main className="flex-1 flex flex-col relative overflow-hidden bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-repeat">
+                        {/* Decorative Background */}
+                        <div className="absolute top-[-20%] left-[20%] w-[600px] h-[600px] bg-indigo-600/10 blur-[150px] rounded-full"></div>
+                        <div className="absolute bottom-[-10%] right-[10%] w-[400px] h-[400px] bg-pink-600/10 blur-[120px] rounded-full"></div>
 
-                        <header className="h-20 glass border-b border-white/5 flex items-center justify-between px-10 z-10">
-                            <div className="flex items-center space-x-3">
-                                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]"></div>
-                                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Sistem Operasi AI Berjalan</span>
+                        {/* Top Bar */}
+                        <header className="h-20 glass-card border-b border-white/5 flex items-center justify-between px-10 z-20">
+                            <div className="flex items-center gap-8">
+                                <div className="flex items-center gap-2">
+                                    <Icon name="cpu" size={16} className="text-indigo-500" />
+                                    <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Node: Indonesia-West-1</span>
+                                </div>
+                                <div className="h-4 w-px bg-white/10"></div>
+                                <div className="flex items-center gap-4">
+                                    <label className="text-[10px] font-bold text-gray-600 uppercase">Model Routing:</label>
+                                    <select 
+                                        value={selectedModel} 
+                                        onChange={(e) => setSelectedModel(e.target.value)}
+                                        className="bg-white/5 border border-white/10 rounded-lg px-3 py-1 text-[10px] font-bold outline-none cursor-pointer"
+                                    >
+                                        <option value="auto">Auto-Orchestrate (Best)</option>
+                                        <option value="gemini">Google Gemini 1.5</option>
+                                        <option value="groq">Groq Llama 3</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div className="flex items-center space-x-6">
-                                <button className="text-gray-400 hover:text-white transition-colors"><LucideIcon name="bell" size={18} /></button>
-                                <button className="text-gray-400 hover:text-white transition-colors"><LucideIcon name="settings" size={18} /></button>
-                                <div className="h-8 w-px bg-white/10 mx-2"></div>
-                                <button className="bg-white text-black text-xs font-bold px-4 py-2 rounded-full hover:bg-indigo-500 hover:text-white transition-all">Hubungkan API</button>
+                            <div className="flex items-center gap-4">
+                                <button className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10"><Icon name="search" size={18} /></button>
+                                <button className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 relative">
+                                    <Icon name="bell" size={18} />
+                                    <span className="absolute top-2 right-2 w-2 h-2 bg-pink-500 rounded-full border-2 border-[#050507]"></span>
+                                </button>
+                                <button className="bg-white text-black px-6 py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-600 hover:text-white transition-all">Publish App</button>
                             </div>
                         </header>
 
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-10 z-10">
-                            {activeTab === 'dashboard' ? (
-                                <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                                    <div className="max-w-3xl">
-                                        <h1 className="text-6xl font-black tracking-tighter mb-4 leading-[1.1]">Ruang <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">Inovasi Tanpa Batas</span></h1>
-                                        <p className="text-gray-400 text-lg leading-relaxed">Selamat datang kembali. Akses berbagai model kecerdasan buatan terkuat di dunia melalui satu antarmuka yang elegan.</p>
+                        {/* Scrolling Content */}
+                        <div className="flex-1 overflow-y-auto custom-scroll p-10 z-10">
+                            {activeModule === 'dashboard' ? (
+                                <div className="space-y-12 animate-in fade-in slide-in-from-bottom-5 duration-700">
+                                    <div>
+                                        <h2 className="text-7xl font-black tracking-tighter mb-4 leading-none gradient-text">Studio Kreatif <br/>Serbaguna.</h2>
+                                        <p className="text-gray-400 text-lg max-w-2xl leading-relaxed">Selamat datang di pusat kendali AI Anda. Gabungan kekuatan dari berbagai model bahasa besar untuk hasil yang tanpa cela.</p>
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                                        <StatsCard label="Kredit Tersedia" value="1,240 Pts" icon="credit-card" color="text-indigo-400" />
-                                        <StatsCard label="Proyek Selesai" value="48" icon="check-circle" color="text-green-400" />
-                                        <StatsCard label="Model Terintegrasi" value="12" icon="cpu" color="text-purple-400" />
-                                        <StatsCard label="Response Time" value="1.2s" icon="zap" color="text-yellow-400" />
+                                        <StatBox label="API Latency" value="124ms" icon="zap" trend="+12%" />
+                                        <StatBox label="Tokens Used" value="14.2k" icon="database" trend="-5%" />
+                                        <StatBox label="AI Success" value="99.9%" icon="check-circle" trend="Stable" />
+                                        <StatBox label="Active Nodes" value="24/24" icon="globe" trend="Max" />
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                        <FeatureCard title="Text Generation" desc="Tulis konten blog, naskah video, hingga kode pemrograman kompleks." icon="type" color="bg-blue-600" onClick={() => setActiveTab('text')} />
-                                        <FeatureCard title="Visual Art" desc="Ubah teks menjadi gambar fotorealistik berkualitas tinggi." icon="image" color="bg-purple-600" onClick={() => setActiveTab('image')} />
-                                        <FeatureCard title="Video Motion" desc="Hasilkan animasi pendek dan transisi video sinematik." icon="video" color="bg-orange-600" onClick={() => setActiveTab('video')} />
+                                        <ModuleCard icon="pen-tool" title="Writer" desc="Naskah profesional & Copywriting." color="indigo" onClick={() => setActiveModule('chat')} />
+                                        <ModuleCard icon="monitor" title="App Builder" desc="Bangun UI secara visual." color="purple" onClick={() => setActiveModule('chat')} />
+                                        <ModuleCard icon="terminal" title="Debugger" desc="Analisis error kode otomatis." color="pink" onClick={() => setActiveModule('chat')} />
                                     </div>
                                 </div>
                             ) : (
                                 <div className="max-w-4xl mx-auto space-y-8 animate-in zoom-in-95 duration-500">
-                                    <div className="flex items-end justify-between border-b border-white/5 pb-6">
-                                        <div>
-                                            <h2 className="text-4xl font-black tracking-tight capitalize">AI {activeTab}</h2>
-                                            <p className="text-gray-500 mt-2">Ditenagai oleh {selectedEngine === 'gemini' ? 'Google Gemini 1.5 Flash' : 'Meta Llama 3'}</p>
-                                        </div>
-                                        <div className="bg-indigo-600/10 px-4 py-2 rounded-xl border border-indigo-600/20 flex items-center space-x-2">
-                                            <LucideIcon name="shield-check" className="text-indigo-500" size={14} />
-                                            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Aman & Terenkripsi</span>
+                                    <div className="flex items-center justify-between border-b border-white/5 pb-8">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-600/30 flex items-center justify-center text-indigo-400">
+                                                <Icon name={activeModule === 'chat' ? 'message-square' : activeModule} size={24} />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-3xl font-black tracking-tight capitalize">AI {activeModule} Studio</h2>
+                                                <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">Status: Multi-Model Sync Active</p>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div className="neon-border bg-[#0d0d0f] rounded-[2.5rem] p-2">
-                                        <div className="bg-[#08080a] rounded-[2.2rem] p-8">
+                                    {/* Input Area */}
+                                    <div className="glass-card rounded-[32px] p-2">
+                                        <div className="bg-[#08080a] rounded-[30px] p-8 shadow-inner">
                                             <textarea 
-                                                value={prompt}
-                                                onChange={(e) => setPrompt(e.target.value)}
-                                                placeholder="Deskripsikan apa yang ingin Anda buat hari ini..."
-                                                className="w-full bg-transparent border-none focus:ring-0 text-xl h-48 resize-none placeholder-gray-800 font-medium"
+                                                value={input}
+                                                onChange={(e) => setInput(e.target.value)}
+                                                placeholder="Berikan instruksi atau tempel kode Anda di sini..."
+                                                className="w-full bg-transparent border-none focus:ring-0 text-xl font-medium h-48 resize-none placeholder-gray-800 leading-relaxed custom-scroll"
                                             />
                                             <div className="flex items-center justify-between mt-6 pt-6 border-t border-white/5">
-                                                <div className="flex space-x-2">
-                                                    <ToolButton icon="paperclip" />
-                                                    <ToolButton icon="image" />
-                                                    <ToolButton icon="mic" />
+                                                <div className="flex gap-2">
+                                                    <button className="p-3 bg-white/5 rounded-xl hover:bg-white/10 hover:text-white transition-all text-gray-500"><Icon name="paperclip" size={20} /></button>
+                                                    <button className="p-3 bg-white/5 rounded-xl hover:bg-white/10 hover:text-white transition-all text-gray-500"><Icon name="layers" size={20} /></button>
                                                 </div>
                                                 <button 
                                                     onClick={handleGenerate}
-                                                    disabled={loading || !prompt.trim()}
-                                                    className={`px-10 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center space-x-3 ${loading ? 'bg-gray-800 text-gray-500' : 'bg-indigo-600 hover:bg-indigo-500 shadow-xl shadow-indigo-600/20 active:scale-95'}`}
+                                                    disabled={isGenerating || !input.trim()}
+                                                    className={`px-12 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center gap-3 ${isGenerating ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 shadow-2xl shadow-indigo-600/40 active:scale-95'}`}
                                                 >
-                                                    {loading ? <LucideIcon name="loader-2" className="animate-spin" /> : <LucideIcon name="send" />}
-                                                    <span>{loading ? 'AI Memproses...' : 'Eksekusi Perintah'}</span>
+                                                    {isGenerating ? <Icon name="loader-2" className="animate-spin" /> : <Icon name="zap" />}
+                                                    <span>{isGenerating ? 'Orchestrating AI...' : 'Generate Result'}</span>
                                                 </button>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {result && (
-                                        <div className={`glass rounded-[2.5rem] p-10 space-y-6 border ${result.isError ? 'border-red-500/30' : 'border-indigo-500/20'} animate-in slide-in-from-top-4`}>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center space-x-3">
-                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${result.isError ? 'bg-red-500/10 text-red-500' : 'bg-indigo-500/10 text-indigo-400'}`}>
-                                                        <LucideIcon name={result.isError ? "alert-triangle" : "sparkles"} size={16} />
+                                    {/* Result Area */}
+                                    {response && (
+                                        <div className={`glass-card p-10 rounded-[40px] space-y-8 animate-in slide-in-from-top-4 border ${response.error ? 'border-red-500/30' : 'border-indigo-500/20'} relative overflow-hidden`}>
+                                            {!response.error && <div className="absolute top-0 right-0 p-8 opacity-[0.03]"><Icon name="sparkles" size={150} /></div>}
+                                            <div className="flex items-center justify-between relative z-10">
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${response.error ? 'bg-red-500/10 text-red-500' : 'bg-indigo-600/10 text-indigo-400'}`}>
+                                                        <Icon name={response.error ? "alert-triangle" : "cpu"} size={20} />
                                                     </div>
-                                                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Hasil Generasi</span>
+                                                    <div>
+                                                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Source Response</p>
+                                                        <p className="text-xs font-bold text-white uppercase tracking-tighter">{response.model || 'System Error'}</p>
+                                                    </div>
                                                 </div>
-                                                <button onClick={() => navigator.clipboard.writeText(result.text)} className="p-2 hover:bg-white/5 rounded-lg text-gray-500 hover:text-white transition-all"><LucideIcon name="copy" size={16} /></button>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => navigator.clipboard.writeText(response.content)} className="p-3 bg-white/5 rounded-xl hover:text-indigo-400"><Icon name="copy" size={18} /></button>
+                                                    <button className="p-3 bg-white/5 rounded-xl hover:text-indigo-400"><Icon name="maximize" size={18} /></button>
+                                                </div>
                                             </div>
-                                            <div className={`leading-relaxed text-lg whitespace-pre-wrap ${result.isError ? 'text-red-400 font-mono text-sm' : 'text-gray-300'}`}>
-                                                {result.text}
+                                            <div className={`leading-[1.8] text-lg whitespace-pre-wrap font-medium relative z-10 ${response.error ? 'text-red-400 font-mono text-sm' : 'text-gray-300'}`}>
+                                                {response.content}
                                             </div>
                                         </div>
                                     )}
@@ -226,44 +299,44 @@
             );
         };
 
-        const SidebarItem = ({ icon, label, active, onClick }) => (
-            <button 
-                onClick={onClick}
-                className={`w-full flex items-center space-x-4 p-4 rounded-2xl transition-all font-medium text-sm ${active ? 'sidebar-active shadow-inner' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-            >
-                <LucideIcon name={icon} size={18} />
+        const SidebarLink = ({ icon, label, active, onClick }) => (
+            <button onClick={onClick} className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all font-bold text-sm ${active ? 'nav-link-active' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>
+                <Icon name={icon} size={20} className={active ? "text-indigo-500" : ""} />
                 <span>{label}</span>
             </button>
         );
 
-        const StatsCard = ({ label, value, icon, color }) => (
-            <div className="glass p-5 rounded-2xl border border-white/5 group hover:border-white/10 transition-all">
-                <div className="flex items-center justify-between mb-3">
-                    <div className={`p-2 rounded-lg bg-white/5 ${color}`}><LucideIcon name={icon} size={16} /></div>
-                    <LucideIcon name="trending-up" className="text-green-500/50" size={14} />
+        const StatBox = ({ label, value, icon, trend }) => (
+            <div className="glass-card p-6 rounded-3xl border border-white/5 group hover:border-white/10">
+                <div className="flex items-center justify-between mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-gray-400 group-hover:bg-indigo-600 group-hover:text-white transition-all"><Icon name={icon} size={18} /></div>
+                    <span className={`text-[10px] font-black ${trend.includes('+') ? 'text-green-500' : trend.includes('-') ? 'text-red-500' : 'text-gray-500'}`}>{trend}</span>
                 </div>
-                <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">{label}</p>
-                <p className="text-2xl font-black tracking-tight">{value}</p>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{label}</p>
+                <p className="text-2xl font-black tracking-tighter mt-1">{value}</p>
             </div>
         );
 
-        const FeatureCard = ({ title, desc, icon, color, onClick }) => (
-            <div onClick={onClick} className="glass p-8 rounded-[2rem] border border-white/5 group hover:border-indigo-500/50 transition-all cursor-pointer relative overflow-hidden h-full">
-                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><LucideIcon name={icon} size={120} /></div>
-                <div className={`${color} w-14 h-14 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-black/50 group-hover:scale-110 transition-transform`}>
-                    <LucideIcon name={icon} className="text-white" size={28} />
+        const ModuleCard = ({ icon, title, desc, color, onClick }) => {
+            const colors = {
+                indigo: 'bg-indigo-600',
+                purple: 'bg-purple-600',
+                pink: 'bg-pink-600'
+            };
+            return (
+                <div onClick={onClick} className="glass-card p-8 rounded-[35px] group cursor-pointer hover:scale-[1.02] transition-all relative overflow-hidden h-full border-b-4 border-b-indigo-500/0 hover:border-b-indigo-500">
+                    <div className="absolute top-[-10px] right-[-10px] opacity-[0.02] group-hover:opacity-[0.08] group-hover:rotate-12 transition-all duration-500"><Icon name={icon} size={150} /></div>
+                    <div className={`${colors[color]} w-14 h-14 rounded-2xl flex items-center justify-center mb-6 shadow-2xl group-hover:scale-110`}>
+                        <Icon name={icon} className="text-white fill-current" size={28} />
+                    </div>
+                    <h3 className="text-2xl font-black mb-3 tracking-tight">{title}</h3>
+                    <p className="text-gray-500 text-sm leading-relaxed mb-6">{desc}</p>
+                    <div className="flex items-center gap-2 text-indigo-400 text-[10px] font-black uppercase tracking-[0.2em] opacity-0 group-hover:opacity-100 transition-all">
+                        Initialize Node <Icon name="chevron-right" size={14} />
+                    </div>
                 </div>
-                <h3 className="text-2xl font-black mb-3 tracking-tight">{title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
-                <div className="mt-8 flex items-center text-indigo-500 font-bold text-xs uppercase tracking-widest group-hover:translate-x-2 transition-transform">
-                    Mulai Sekarang <LucideIcon name="chevron-right" size={14} className="ml-2" />
-                </div>
-            </div>
-        );
-
-        const ToolButton = ({ icon }) => (
-            <button className="p-3 bg-white/5 rounded-xl text-gray-500 hover:bg-white/10 hover:text-white transition-all"><LucideIcon name={icon} size={18} /></button>
-        );
+            );
+        };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
