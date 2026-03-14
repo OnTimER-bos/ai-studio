@@ -19,48 +19,59 @@ const App = () => {
     const [result, setResult] = useState(null);
     const [selectedEngine, setSelectedEngine] = useState('gemini');
 
-    // KONFIGURASI MULTI-API KEY
+    // KONFIGURASI API KEY (Pastikan tidak ada spasi di awal/akhir)
     const apiKeys = {
-        gemini: "AIzaSyDGj5VeZ9y7gKcsmbWrqB0_ptzoyBjHP1U",
-        groq: "gsk_vR8_0BZiQWmk42bQOKH6tHNZEftZLYfpCZA0UMCyG" 
+        gemini: "AIzaSyDGj5VeZ9y7gKcsmbWrqB0_ptzoyBjHP1U".trim(),
+        groq: "gsk_vR8_0BZiQWmk42bQOKH6tHNZEftZLYfpCZA0UMCyG".trim() 
     };
 
     /**
-     * Fungsi untuk memanggil Gemini dengan fallback model
-     * Ini mencegah error "Model not found"
+     * Fungsi Pemanggil Gemini menggunakan API v1 (Stable)
      */
-    const callGemini = async (userPrompt) => {
-        // Daftar model yang akan dicoba berurutan jika salah satu gagal
-        const modelVariants = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"];
-        let lastError = null;
+    const callGeminiAPI = async (text) => {
+        // Menggunakan v1 (BUKAN v1beta) untuk stabilitas maksimum
+        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKeys.gemini}`;
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{ text: text }]
+                }]
+            })
+        });
 
-        for (const modelName of modelVariants) {
-            try {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKeys.gemini}`;
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: userPrompt }] }]
-                    })
-                });
-
-                const data = await response.json();
-                if (data.error) throw new Error(data.error.message);
-                
-                if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-                    return data.candidates[0].content.parts[0].text;
-                }
-            } catch (err) {
-                console.warn(`Gagal mencoba model ${modelName}, mencoba model berikutnya...`);
-                lastError = err;
-            }
+        const data = await response.json();
+        
+        if (data.error) {
+            // Jika v1 gagal, coba v1beta sebagai cadangan otomatis
+            console.warn("v1 Gagal, mencoba v1beta...");
+            return await callGeminiBeta(text);
         }
-        throw lastError || new Error("Semua varian model Gemini gagal.");
+
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || "Maaf, tidak ada respon.";
+    };
+
+    /**
+     * Fungsi Cadangan menggunakan v1beta
+     */
+    const callGeminiBeta = async (text) => {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKeys.gemini}`;
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: text }] }]
+            })
+        });
+        const data = await response.json();
+        if (data.error) throw new Error(data.error.message);
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || "Maaf, tidak ada respon.";
     };
 
     const handleGenerate = async (type) => {
-        if (!prompt) return;
+        if (!prompt.trim()) return;
         setLoading(true);
         setResult(null);
 
@@ -68,7 +79,7 @@ const App = () => {
             let outputText = "";
 
             if (selectedEngine === 'gemini') {
-                outputText = await callGemini(prompt);
+                outputText = await callGeminiAPI(prompt);
             } else {
                 // LOGIKA UNTUK GROQ
                 const response = await fetch(`https://api.groq.com/openai/v1/chat/completions`, {
@@ -98,7 +109,7 @@ const App = () => {
             console.error("API Error:", err);
             setResult({ 
                 type, 
-                text: `Kesalahan pada ${selectedEngine}: ${err.message}`,
+                text: `Gagal memproses ${selectedEngine}: ${err.message}`,
                 isError: true 
             });
         } finally {
@@ -120,10 +131,9 @@ const App = () => {
 
     return (
         <div className="flex h-screen overflow-hidden bg-[#0a0a0c] text-white">
-            {/* Sidebar */}
             <aside className="w-64 border-r border-gray-800 flex flex-col p-4 space-y-8 bg-[#0d0d0f]">
                 <div className="flex items-center space-x-3 px-2">
-                    <div className="bg-indigo-600 p-2 rounded-lg shadow-lg shadow-indigo-600/20">
+                    <div className="bg-indigo-600 p-2 rounded-lg shadow-lg">
                         <LucideIcon name="sparkles" className="text-white" />
                     </div>
                     <h1 className="text-xl font-bold tracking-tight">V-STUDIO</h1>
@@ -137,74 +147,52 @@ const App = () => {
                 </nav>
                 
                 <div className="p-4 bg-gray-900/50 rounded-2xl border border-gray-800">
-                    <div className="text-[10px] text-gray-500 uppercase font-bold mb-3 tracking-widest text-center">Pilih Engine</div>
+                    <div className="text-[10px] text-gray-500 uppercase font-bold mb-3 tracking-widest text-center">Engine Aktif</div>
                     <div className="flex p-1 bg-black rounded-xl gap-1">
-                        <button 
-                            onClick={() => setSelectedEngine('gemini')}
-                            className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all ${selectedEngine === 'gemini' ? 'bg-indigo-600 text-white' : 'text-gray-500'}`}
-                        >GEMINI</button>
-                        <button 
-                            onClick={() => setSelectedEngine('groq')}
-                            className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all ${selectedEngine === 'groq' ? 'bg-orange-600 text-white' : 'text-gray-500'}`}
-                        >GROQ</button>
+                        <button onClick={() => setSelectedEngine('gemini')} className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold ${selectedEngine === 'gemini' ? 'bg-indigo-600' : 'text-gray-500'}`}>GEMINI</button>
+                        <button onClick={() => setSelectedEngine('groq')} className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold ${selectedEngine === 'groq' ? 'bg-orange-600' : 'text-gray-500'}`}>GROQ</button>
                     </div>
                 </div>
             </aside>
 
-            {/* Main Content */}
             <main className="flex-1 flex flex-col overflow-y-auto">
-                <header className="h-16 border-b border-gray-800 flex items-center justify-between px-8 bg-[#0a0a0c]/80 backdrop-blur-md sticky top-0 z-10">
+                <header className="h-16 border-b border-gray-800 flex items-center px-8 bg-[#0a0a0c]/80 backdrop-blur-md sticky top-0 z-10">
                     <div className="flex items-center space-x-3">
                         <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                        <span className="text-xs text-gray-400 font-medium uppercase tracking-widest">System Online | {selectedEngine}</span>
+                        <span className="text-xs text-gray-400 font-medium uppercase tracking-widest">Sistem Online | {selectedEngine}</span>
                     </div>
                 </header>
 
                 <div className="p-8 animate-fade-in">
                     {activeTab === 'dashboard' ? (
-                        <div className="space-y-8">
-                            <h2 className="text-4xl font-bold tracking-tight">Halo, Kreator!</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                {[
-                                    { title: "AI Writer", icon: "type", color: "bg-blue-600" },
-                                    { title: "AI Visual", icon: "image", color: "bg-purple-600" },
-                                    { title: "AI Animation", icon: "video", color: "bg-orange-600" }
-                                ].map((item, i) => (
-                                    <div key={i} className="bg-[#151518] p-6 rounded-3xl border border-gray-800 hover:border-indigo-500 transition-all cursor-pointer">
-                                        <div className={`${item.color} w-10 h-10 rounded-xl flex items-center justify-center mb-4`}>
-                                            <LucideIcon name={item.icon} size={20} />
-                                        </div>
-                                        <h3 className="text-lg font-bold">{item.title}</h3>
-                                        <p className="text-gray-500 text-xs mt-2">Powered by {selectedEngine.toUpperCase()}</p>
-                                    </div>
-                                ))}
-                            </div>
+                        <div className="space-y-8 text-center py-20">
+                            <h2 className="text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-500">Pusat Kreativitas AI</h2>
+                            <p className="text-gray-400 max-w-lg mx-auto">Gunakan menu di samping untuk mulai menulis, membuat gambar, atau video.</p>
                         </div>
                     ) : (
-                        <div className="max-w-4xl space-y-8">
+                        <div className="max-w-4xl mx-auto space-y-8">
                             <h2 className="text-3xl font-bold capitalize">Generator {activeTab}</h2>
-
                             <div className="bg-[#151518] p-8 rounded-3xl border border-gray-800 space-y-6">
                                 <textarea 
                                     value={prompt}
                                     onChange={(e) => setPrompt(e.target.value)}
-                                    placeholder={`Apa yang ingin Anda buat dengan ${selectedEngine}?`}
-                                    className="w-full bg-gray-900 border border-gray-800 rounded-2xl p-6 h-48 focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-lg resize-none text-white"
+                                    placeholder="Masukkan perintah atau ide Anda di sini..."
+                                    className="w-full bg-gray-900 border border-gray-800 rounded-2xl p-6 h-48 focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-white text-lg"
                                 />
                                 <button 
                                     onClick={() => handleGenerate(activeTab)}
-                                    disabled={loading || !prompt}
-                                    className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center space-x-3 transition-all ${loading ? 'bg-gray-800' : 'bg-indigo-600 hover:bg-indigo-500'}`}
+                                    disabled={loading || !prompt.trim()}
+                                    className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center space-x-3 transition-all ${loading ? 'bg-gray-800' : 'bg-indigo-600 hover:bg-indigo-500 active:scale-95'}`}
                                 >
                                     {loading ? <LucideIcon name="loader-2" className="animate-spin" /> : <LucideIcon name="zap" />}
-                                    <span>{loading ? 'Memproses...' : 'Mulai Sekarang'}</span>
+                                    <span>{loading ? 'AI sedang berpikir...' : 'Jalankan Perintah'}</span>
                                 </button>
                             </div>
 
                             {result && (
                                 <div className={`bg-[#151518] p-8 rounded-3xl border ${result.isError ? 'border-red-500/30' : 'border-indigo-500/30'} animate-fade-in`}>
                                     <div className="flex items-center space-x-2 text-indigo-400 font-bold text-[10px] mb-4 uppercase">
-                                        <LucideIcon name={result.isError ? "alert-circle" : "sparkles"} size={14} />
+                                        <LucideIcon name={result.isError ? "alert-circle" : "check-circle"} size={14} />
                                         <span>Hasil {result.engine}</span>
                                     </div>
                                     <div className={`leading-relaxed text-lg whitespace-pre-wrap ${result.isError ? 'text-red-400' : 'text-gray-300'}`}>
