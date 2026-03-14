@@ -1,6 +1,9 @@
 const { useState, useEffect } = React;
 
-// Komponen Ikon Lucide untuk React
+/**
+ * Komponen Ikon Lucide untuk React
+ * Memastikan ikon dirender ulang setiap kali nama ikon berubah.
+ */
 const LucideIcon = ({ name, size = 20, className = "" }) => {
     useEffect(() => {
         if (window.lucide) {
@@ -15,45 +18,77 @@ const App = () => {
     const [loading, setLoading] = useState(false);
     const [prompt, setPrompt] = useState('');
     const [result, setResult] = useState(null);
-    
-    const apiKey = "AIzaSyDGj5VeZ9y7gKcsmbWrqB0_ptzoyBjHP1U"; // Kunci API gemini
-    
+    const [selectedEngine, setSelectedEngine] = useState('gemini'); // Pilihan engine aktif
 
-    
-    const apiKey = "=r8_0BZiQWmk42bQOKH6tHNZEftZLYfpCZA0UMCyG"; // Kunci API otomatis
-
-
-    
-    const models = {
-        video: [
-            { id: 'sora-2', name: 'Sora 2', provider: 'OpenAI', desc: 'Realistis & Sinematik' },
-            { id: 'veo-3', name: 'Veo 3', provider: 'Google', desc: 'Presisi Tinggi' }
-        ],
-        image: [
-            { id: 'flux-2', name: 'Flux.2', provider: 'Black Forest', desc: 'Fotorealistik' },
-            { id: 'dalle-3', name: 'DALL-E 3', provider: 'OpenAI', desc: 'Akurat' }
-        ],
-        text: [
-            { id: 'gemini-2-5', name: 'Gemini 2.5', provider: 'Google', desc: 'Super Cepat' }
-        ]
+    // KONFIGURASI MULTI-API KEY
+    // Disimpan dalam satu objek agar tidak terjadi error redeklarasi variabel
+    const apiKeys = {
+        gemini: "AIzaSyDGj5VeZ9y7gKcsmbWrqB0_ptzoyBjHP1U",
+        groq: "gsk_vR8_0BZiQWmk42bQOKH6tHNZEftZLYfpCZA0UMCyG" 
     };
 
+    /**
+     * Fungsi utama untuk memproses permintaan ke API AI
+     */
     const handleGenerate = async (type) => {
         if (!prompt) return;
         setLoading(true);
+        setResult(null);
+
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: `Generate a creative response for: ${prompt}` }] }]
-                })
+            let response;
+            let outputText = "";
+
+            if (selectedEngine === 'gemini') {
+                // LOGIKA UNTUK GOOGLE GEMINI
+                response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKeys.gemini}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: `Berikan respon kreatif dan mendalam untuk: ${prompt}` }] }]
+                    })
+                });
+
+                const data = await response.json();
+                if (data.error) throw new Error(data.error.message);
+                outputText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            } else {
+                // LOGIKA UNTUK GROQ (Menggunakan Llama 3)
+                response = await fetch(`https://api.groq.com/openai/v1/chat/completions`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKeys.groq}`
+                    },
+                    body: JSON.stringify({
+                        model: "llama3-8b-8192",
+                        messages: [
+                            { role: "system", content: "Anda adalah asisten AI profesional di V-STUDIO." },
+                            { role: "user", content: prompt }
+                        ],
+                        temperature: 0.7
+                    })
+                });
+
+                const data = await response.json();
+                if (data.error) throw new Error(data.error.message);
+                outputText = data.choices?.[0]?.message?.content;
+            }
+
+            setResult({ 
+                type, 
+                text: outputText || "AI tidak memberikan respon.",
+                engine: selectedEngine 
             });
-            const data = await response.json();
-            const output = data.candidates?.[0]?.content?.parts?.[0]?.text || "Maaf, terjadi kesalahan.";
-            setResult({ type, text: output });
+
         } catch (err) {
             console.error("Gagal memproses AI:", err);
+            setResult({ 
+                type, 
+                text: `Terjadi kesalahan saat menggunakan ${selectedEngine}: ${err.message}`,
+                isError: true 
+            });
         } finally {
             setLoading(false);
         }
@@ -67,12 +102,12 @@ const App = () => {
             }`}
         >
             <LucideIcon name={icon} size={20} />
-            <span className="font-medium">{label}</span>
+            <span className="font-medium text-sm">{label}</span>
         </button>
     );
 
     return (
-        <div className="flex h-screen overflow-hidden bg-[#0a0a0c]">
+        <div className="flex h-screen overflow-hidden bg-[#0a0a0c] text-white">
             {/* Sidebar */}
             <aside className="w-64 border-r border-gray-800 flex flex-col p-4 space-y-8 bg-[#0d0d0f]">
                 <div className="flex items-center space-x-3 px-2">
@@ -89,48 +124,50 @@ const App = () => {
                     <SidebarItem id="text" icon="type" label="AI Writing" />
                 </nav>
                 
-                <div className="p-4 bg-gray-900 rounded-2xl border border-gray-800">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] text-gray-500 uppercase font-bold">Kredit Sisa</span>
-                        <LucideIcon name="zap" size={14} className="text-yellow-400" />
+                {/* Engine Selector */}
+                <div className="p-4 bg-gray-900/50 rounded-2xl border border-gray-800">
+                    <div className="text-[10px] text-gray-500 uppercase font-bold mb-3 tracking-widest text-center">Engine Aktif</div>
+                    <div className="flex p-1 bg-black rounded-xl gap-1">
+                        <button 
+                            onClick={() => setSelectedEngine('gemini')}
+                            className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all ${selectedEngine === 'gemini' ? 'bg-indigo-600 text-white' : 'text-gray-500'}`}
+                        >GEMINI</button>
+                        <button 
+                            onClick={() => setSelectedEngine('groq')}
+                            className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all ${selectedEngine === 'groq' ? 'bg-orange-600 text-white' : 'text-gray-500'}`}
+                        >GROQ</button>
                     </div>
-                    <div className="text-lg font-bold">1,240 <span className="text-xs font-normal text-gray-500">Pts</span></div>
                 </div>
             </aside>
 
             {/* Main Content */}
             <main className="flex-1 flex flex-col overflow-y-auto">
-                <header className="h-16 border-b border-gray-800 flex items-center justify-between px-8 glass-panel sticky top-0 z-10">
-                    <div className="relative w-96">
-                        <LucideIcon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                        <input type="text" placeholder="Cari alat AI..." className="w-full bg-gray-900 border border-gray-800 rounded-full py-1.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                <header className="h-16 border-b border-gray-800 flex items-center justify-between px-8 bg-[#0a0a0c]/80 backdrop-blur-md sticky top-0 z-10">
+                    <div className="flex items-center space-x-3">
+                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        <span className="text-xs text-gray-400 font-medium">Sistem Berjalan: <span className="text-white uppercase">{selectedEngine}</span></span>
                     </div>
                     <div className="flex items-center space-x-4">
-                        <button className="bg-white text-black px-5 py-1.5 rounded-full text-xs font-bold hover:bg-gray-200 transition-colors">Upgrade Pro</button>
-                        <div className="w-8 h-8 rounded-full bg-indigo-500 border border-white/10"></div>
+                        <div className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700"></div>
                     </div>
                 </header>
 
                 <div className="p-8 animate-fade-in">
                     {activeTab === 'dashboard' ? (
                         <div className="space-y-8">
-                            <section>
-                                <h2 className="text-4xl font-bold mb-3 tracking-tight">Halo, Kreator!</h2>
-                                <p className="text-gray-400 text-lg">Wujudkan ide Anda menjadi kenyataan dengan kekuatan AI.</p>
-                            </section>
-                            
+                            <h2 className="text-4xl font-bold tracking-tight">Panel Utama</h2>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 {[
-                                    { title: "Talking Avatar", icon: "monitor-play", color: "bg-blue-600", desc: "Ubah foto menjadi video bicara otomatis." },
-                                    { title: "AI Hugging", icon: "users", color: "bg-purple-600", desc: "Buat video interaksi sosial yang nyata." },
-                                    { title: "Smart Ads", icon: "sparkles", color: "bg-orange-600", desc: "Generator konten iklan produk instan." }
+                                    { title: "Kling Video", icon: "clapperboard", color: "bg-blue-600", desc: "Simulasi video realistis." },
+                                    { title: "Flux Image", icon: "aperture", color: "bg-purple-600", desc: "Generasi gambar HD." },
+                                    { title: "Llama 3 Text", icon: "message-square", color: "bg-orange-600", desc: "Penulisan teks cerdas." }
                                 ].map((item, i) => (
-                                    <div key={i} className="bg-[#151518] p-6 rounded-3xl border border-gray-800 hover:border-indigo-500/50 transition-all cursor-pointer group">
-                                        <div className={`${item.color} w-12 h-12 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform`}>
-                                            <LucideIcon name={item.icon} className="text-white" size={24} />
+                                    <div key={i} className="bg-[#151518] p-6 rounded-3xl border border-gray-800 hover:border-indigo-500 transition-all cursor-pointer">
+                                        <div className={`${item.color} w-10 h-10 rounded-xl flex items-center justify-center mb-4`}>
+                                            <LucideIcon name={item.icon} size={20} />
                                         </div>
-                                        <h3 className="text-xl font-bold mb-2">{item.title}</h3>
-                                        <p className="text-gray-500 text-sm leading-relaxed">{item.desc}</p>
+                                        <h3 className="text-lg font-bold mb-1">{item.title}</h3>
+                                        <p className="text-gray-500 text-xs leading-relaxed">{item.desc}</p>
                                     </div>
                                 ))}
                             </div>
@@ -139,39 +176,36 @@ const App = () => {
                         <div className="max-w-4xl space-y-8">
                             <div>
                                 <h2 className="text-3xl font-bold capitalize mb-2">AI {activeTab} Studio</h2>
-                                <p className="text-gray-400 text-sm">Pilih model dan deskripsikan apa yang ingin Anda buat.</p>
+                                <p className="text-gray-400 text-sm">Diproses menggunakan engine <span className="text-indigo-400 font-bold uppercase">{selectedEngine}</span></p>
                             </div>
 
-                            <div className="bg-[#151518] p-8 rounded-3xl border border-gray-800 space-y-6">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Prompt Anda</label>
-                                    <textarea 
-                                        value={prompt}
-                                        onChange={(e) => setPrompt(e.target.value)}
-                                        placeholder={`Tulis deskripsi detail untuk ${activeTab} di sini...`}
-                                        className="w-full bg-gray-900 border border-gray-800 rounded-2xl p-5 h-40 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all resize-none text-lg"
-                                    />
-                                </div>
+                            <div className="bg-[#151518] p-8 rounded-3xl border border-gray-800 space-y-6 shadow-2xl">
+                                <textarea 
+                                    value={prompt}
+                                    onChange={(e) => setPrompt(e.target.value)}
+                                    placeholder={`Apa yang ingin Anda buat hari ini?`}
+                                    className="w-full bg-gray-900 border border-gray-800 rounded-2xl p-6 h-48 focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-lg resize-none"
+                                />
                                 <button 
                                     onClick={() => handleGenerate(activeTab)}
                                     disabled={loading || !prompt}
-                                    className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-800 py-4 rounded-2xl font-bold flex items-center justify-center space-x-3 transition-all text-lg shadow-lg shadow-indigo-600/10"
+                                    className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center space-x-3 transition-all ${loading ? 'bg-gray-800' : 'bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98]'}`}
                                 >
                                     {loading ? <LucideIcon name="loader-2" className="animate-spin" /> : <LucideIcon name="zap" />}
-                                    <span>{loading ? 'Sedang Memproses...' : `Generate ${activeTab}`}</span>
+                                    <span>{loading ? 'AI Sedang Memproses...' : `Generate ${activeTab} Konten`}</span>
                                 </button>
                             </div>
 
                             {result && (
-                                <div className="bg-[#151518] p-8 rounded-3xl border border-indigo-500/30 animate-fade-in shadow-2xl shadow-indigo-500/5">
-                                    <div className="flex items-center space-x-2 text-indigo-400 font-bold mb-4 text-xs tracking-widest uppercase">
-                                        <LucideIcon name="check-circle" size={14} />
-                                        <span>Hasil Generasi AI</span>
+                                <div className={`bg-[#151518] p-8 rounded-3xl border ${result.isError ? 'border-red-500/30' : 'border-indigo-500/30'} animate-fade-in shadow-2xl shadow-indigo-500/5`}>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center space-x-2 text-indigo-400 font-bold text-[10px] tracking-widest uppercase">
+                                            <LucideIcon name={result.isError ? "alert-triangle" : "check-circle"} size={14} />
+                                            <span>Hasil Generasi ({result.engine || 'System'})</span>
+                                        </div>
                                     </div>
-                                    <div className="text-gray-300 leading-relaxed text-lg whitespace-pre-wrap">{result.text}</div>
-                                    <div className="mt-8 flex gap-4">
-                                        <button className="flex-1 bg-white text-black font-bold py-3 rounded-xl text-sm hover:bg-gray-200 transition-colors">Unduh Hasil</button>
-                                        <button className="flex-1 border border-gray-700 font-bold py-3 rounded-xl text-sm hover:bg-gray-800 transition-colors">Salin Teks</button>
+                                    <div className={`leading-relaxed text-lg whitespace-pre-wrap ${result.isError ? 'text-red-400' : 'text-gray-300'}`}>
+                                        {result.text}
                                     </div>
                                 </div>
                             )}
@@ -183,6 +217,5 @@ const App = () => {
     );
 };
 
-// Render App
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
